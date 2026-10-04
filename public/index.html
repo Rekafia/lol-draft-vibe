@@ -22,24 +22,59 @@
   </header>
 
   <main class="content">
-    <section class="hero">
-      <h1>Choose your team</h1>
-      <div class="divider"></div>
-    </section>
+    <!-- ===== Choose your team ===== -->
+    <div class="view" id="view-choose">
+      <section class="hero">
+        <h1>Choose your team</h1>
+        <div class="divider"></div>
+      </section>
 
-    <section class="panel join" id="main-panel">
-      <label class="field-label" for="name-input">Tvoje jméno</label>
-      <input id="name-input" class="text-input" type="text" maxlength="20" placeholder="Napiš svoje jméno" autocomplete="off">
+      <section class="panel join">
+        <label class="field-label" for="name-input">Tvoje jméno</label>
+        <input id="name-input" class="text-input" type="text" maxlength="20" placeholder="Napiš svoje jméno" autocomplete="off">
 
-      <button id="btn-random" class="btn btn-random">Random team</button>
+        <button id="btn-random" class="btn btn-random">Random team</button>
 
-      <div class="team-buttons">
-        <button id="btn-blue" class="btn btn-blue">Blue team</button>
-        <button id="btn-red" class="btn btn-red">Red team</button>
+        <div class="team-buttons">
+          <button id="btn-blue" class="btn btn-blue">Blue team</button>
+          <button id="btn-red" class="btn btn-red">Red team</button>
+        </div>
+
+        <p id="join-error" class="join-error"></p>
+      </section>
+    </div>
+
+    <!-- ===== Waiting room ===== -->
+    <div class="view" id="view-waiting" hidden>
+      <section class="hero">
+        <h1>Waiting room</h1>
+        <div class="divider"></div>
+        <p class="waiting-info" id="waiting-info"></p>
+      </section>
+
+      <section class="teams">
+        <div class="team-col blue">
+          <h2>Blue team <span class="count" id="count-blue"></span></h2>
+          <ul class="slots" id="slots-blue"></ul>
+        </div>
+        <div class="team-col red">
+          <h2>Red team <span class="count" id="count-red"></span></h2>
+          <ul class="slots" id="slots-red"></ul>
+        </div>
+      </section>
+
+      <div class="force-wrap">
+        <button id="btn-force" class="btn btn-random">Force start</button>
       </div>
+    </div>
 
-      <p id="join-result" class="join-result"></p>
-    </section>
+    <!-- ===== Draft ===== -->
+    <div class="view" id="view-draft" hidden>
+      <section class="hero">
+        <h1>Draft</h1>
+        <div class="divider"></div>
+      </section>
+    </div>
   </main>
 
   <footer class="footer">
