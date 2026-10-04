@@ -63,6 +63,12 @@
         </div>
       </section>
 
+      <section class="panel role-picker">
+        <div class="field-label">Tvoje role</div>
+        <div class="role-buttons" id="role-buttons"></div>
+        <button id="btn-random-role" class="btn btn-random">Random role</button>
+      </section>
+
       <div class="force-wrap">
         <button id="btn-force" class="btn btn-random">Force start</button>
       </div>
@@ -86,10 +92,32 @@
         <div class="champ-area">
           <input id="champ-search" class="text-input" type="text" placeholder="Hledat šampiona…" autocomplete="off">
           <div class="champ-grid" id="champ-grid"></div>
-          <button id="btn-lock" class="btn btn-random">Lock in</button>
+          <div class="lock-buttons">
+            <button id="btn-random-champ" class="btn btn-random">Random pick</button>
+            <button id="btn-lock" class="btn btn-random">Lock in</button>
+          </div>
         </div>
 
         <ul class="picks red" id="picks-red"></ul>
+      </section>
+    </div>
+
+    <!-- ===== Result ===== -->
+    <div class="view" id="view-result" hidden>
+      <section class="hero">
+        <h1>Výsledek draftu</h1>
+        <div class="divider"></div>
+      </section>
+
+      <section class="result">
+        <div class="result-team blue">
+          <h2>Blue team</h2>
+          <ul class="result-list" id="result-blue"></ul>
+        </div>
+        <div class="result-team red">
+          <h2>Red team</h2>
+          <ul class="result-list" id="result-red"></ul>
+        </div>
       </section>
     </div>
   </main>

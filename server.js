@@ -13,14 +13,24 @@ const io = new Server(server);
 
 const TEAM_SIZE = 5;
 const TURN_MS = 30 * 1000; // 30 s per ban/pick, same as LoL champ select
+const ROLES = ['top', 'jungle', 'mid', 'adc', 'support'];
 
-// Tournament draft order: 6 bans, 6 picks, 4 bans, 4 picks
-const DRAFT_ORDER = [
-  ['ban', 'blue'], ['ban', 'red'], ['ban', 'blue'], ['ban', 'red'], ['ban', 'blue'], ['ban', 'red'],
-  ['pick', 'blue'], ['pick', 'red'], ['pick', 'red'], ['pick', 'blue'], ['pick', 'blue'], ['pick', 'red'],
-  ['ban', 'red'], ['ban', 'blue'], ['ban', 'red'], ['ban', 'blue'],
-  ['pick', 'red'], ['pick', 'blue'], ['pick', 'blue'], ['pick', 'red'],
-].map(([type, team]) => ({ type, team }));
+// Tournament draft order: 6 bans, 6 picks, 4 bans, 4 picks.
+// `slot` = which player of the team acts (0..4, players sorted by role).
+const DRAFT_ORDER = (() => {
+  const raw = [
+    ['ban', 'blue'], ['ban', 'red'], ['ban', 'blue'], ['ban', 'red'], ['ban', 'blue'], ['ban', 'red'],
+    ['pick', 'blue'], ['pick', 'red'], ['pick', 'red'], ['pick', 'blue'], ['pick', 'blue'], ['pick', 'red'],
+    ['ban', 'red'], ['ban', 'blue'], ['ban', 'red'], ['ban', 'blue'],
+    ['pick', 'red'], ['pick', 'blue'], ['pick', 'blue'], ['pick', 'red'],
+  ];
+  const counts = {};
+  return raw.map(([type, team]) => {
+    const key = type + team;
+    counts[key] = (counts[key] || 0) + 1;
+    return { type, team, slot: counts[key] - 1 };
+  });
+})();
 
 // ---------- Champion data (Data Dragon) ----------
 
@@ -49,31 +59,44 @@ loadChampions();
 
 // ---------- Lobby state ----------
 
-// socket.id -> { name, team }
+// socket.id -> { name, team, role }
 const players = new Map();
-// 'lobby' = choose team + waiting room, 'draft' = draft in progress, 'done' = draft finished
+// 'lobby' = choose team + waiting room, 'draft' = draft in progress, 'done' = result page
 let phase = 'lobby';
 let draft = null;
 let turnTimer = null;
+
+const randomOf = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 function autoName() {
   return `Hráč-${Math.floor(10 + Math.random() * 90)}`;
 }
 
-function teamCount(team) {
-  let n = 0;
-  for (const p of players.values()) if (p.team === team) n++;
-  return n;
+function teamMembers(team) {
+  return [...players].filter(([, p]) => p.team === team);
+}
+
+function freeRoles(team, exceptId) {
+  const used = teamMembers(team).filter(([id]) => id !== exceptId).map(([, p]) => p.role);
+  return ROLES.filter((r) => !used.includes(r));
 }
 
 function broadcastState() {
   io.emit('state', {
     phase,
     teamSize: TEAM_SIZE,
-    players: [...players].map(([id, p]) => ({ id, name: p.name, team: p.team })),
+    roles: ROLES,
+    players: [...players].map(([id, p]) => ({ id, name: p.name, team: p.team, role: p.role })),
     draft,
     serverNow: Date.now(),
   });
+}
+
+// 5v5 and everybody picked a role -> start automatically
+function checkAutoStart() {
+  const all = [...players.values()];
+  const full = teamMembers('blue').length === TEAM_SIZE && teamMembers('red').length === TEAM_SIZE;
+  if (full && all.every((p) => p.role)) startDraft();
 }
 
 // ---------- Draft ----------
@@ -83,15 +106,35 @@ function isTaken(champId) {
   return [...bans.blue, ...bans.red, ...picks.blue, ...picks.red].includes(champId);
 }
 
+function randomFreeChampion() {
+  return randomOf(champions.filter((c) => !isTaken(c.id))).id;
+}
+
 function startDraft() {
   if (phase !== 'lobby' || !ddVersion) return;
+
+  // players without a role get a random free one
+  for (const [id, p] of players) {
+    if (!p.role) p.role = randomOf(freeRoles(p.team, id));
+  }
+
+  // roster snapshot, sorted by role (top -> support)
+  const roster = {};
+  for (const team of ['blue', 'red']) {
+    roster[team] = teamMembers(team)
+      .map(([id, p]) => ({ id, name: p.name, role: p.role }))
+      .sort((a, b) => ROLES.indexOf(a.role) - ROLES.indexOf(b.role));
+  }
+
   phase = 'draft';
   draft = {
     order: DRAFT_ORDER,
+    roster,
     step: 0,
     bans: { blue: [], red: [] },
     picks: { blue: [], red: [] },
     hover: null,
+    actor: null,
     deadline: 0,
     turnMs: TURN_MS,
   };
@@ -99,24 +142,29 @@ function startDraft() {
   startTurn();
 }
 
+// who acts on this step; with fewer than 5 players in a team they take turns
+function actorFor(step) {
+  const list = draft.roster[step.team];
+  return list.length ? list[step.slot % list.length].id : null;
+}
+
 function startTurn() {
   clearTimeout(turnTimer);
+  const step = draft.order[draft.step];
   draft.hover = null;
-  draft.deadline = Date.now() + TURN_MS;
-  turnTimer = setTimeout(onTimeout, TURN_MS);
+  draft.actor = actorFor(step);
+
+  // team with nobody in it: random ban/pick right away
+  const ms = draft.actor ? TURN_MS : 1000;
+  draft.deadline = Date.now() + ms;
+  turnTimer = setTimeout(onTimeout, ms);
   broadcastState();
 }
 
-// Time ran out: lock the hovered champion; otherwise skip the ban / pick a random champion
+// time ran out without lock in -> random ban / random pick
 function onTimeout() {
   if (phase !== 'draft') return;
-  const { type } = draft.order[draft.step];
-  let champ = draft.hover && !isTaken(draft.hover) ? draft.hover : null;
-  if (!champ && type === 'pick') {
-    const free = champions.filter((c) => !isTaken(c.id));
-    champ = free[Math.floor(Math.random() * free.length)].id;
-  }
-  lockIn(champ);
+  lockIn(randomFreeChampion());
 }
 
 function lockIn(champId) {
@@ -128,6 +176,7 @@ function lockIn(champId) {
     clearTimeout(turnTimer);
     phase = 'done';
     draft.hover = null;
+    draft.actor = null;
     console.log('draft finished');
     broadcastState();
     return;
@@ -135,11 +184,8 @@ function lockIn(champId) {
   startTurn();
 }
 
-// is it this socket's team's turn?
 function canAct(socket) {
-  if (phase !== 'draft') return false;
-  const p = players.get(socket.id);
-  return p && p.team === draft.order[draft.step].team;
+  return phase === 'draft' && draft.actor === socket.id;
 }
 
 function resetAll() {
@@ -161,8 +207,8 @@ io.on('connection', (socket) => {
 
     // switching teams: don't count yourself
     players.delete(socket.id);
-    const blueFree = teamCount('blue') < TEAM_SIZE;
-    const redFree = teamCount('red') < TEAM_SIZE;
+    const blueFree = teamMembers('blue').length < TEAM_SIZE;
+    const redFree = teamMembers('red').length < TEAM_SIZE;
 
     let chosen = team;
     if (chosen === 'random') {
@@ -174,10 +220,20 @@ io.on('connection', (socket) => {
       return socket.emit('joinError', 'Tenhle tým je plný.');
     }
 
-    players.set(socket.id, { name: cleanName, team: chosen });
+    players.set(socket.id, { name: cleanName, team: chosen, role: null });
     broadcastState();
+  });
 
-    if (teamCount('blue') === TEAM_SIZE && teamCount('red') === TEAM_SIZE) startDraft();
+  // role: one of ROLES or 'random'; each role only once per team
+  socket.on('setRole', (role) => {
+    const p = players.get(socket.id);
+    if (phase !== 'lobby' || !p) return;
+    const free = freeRoles(p.team, socket.id);
+    if (role === 'random') role = randomOf(free.filter((r) => r !== p.role)) || p.role;
+    if (!free.includes(role)) return;
+    p.role = role;
+    broadcastState();
+    checkAutoStart();
   });
 
   socket.on('leaveTeam', () => {
@@ -202,6 +258,12 @@ io.on('connection', (socket) => {
   socket.on('lockIn', () => {
     if (!canAct(socket) || !draft.hover || isTaken(draft.hover)) return;
     lockIn(draft.hover);
+  });
+
+  // random pick / random ban button
+  socket.on('lockRandom', () => {
+    if (!canAct(socket)) return;
+    lockIn(randomFreeChampion());
   });
 
   socket.on('disconnect', () => {
