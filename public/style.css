@@ -75,7 +75,6 @@ body {
   color: var(--gold-light);
   text-shadow: 0 0 24px rgba(200, 170, 110, 0.25);
 }
-.tagline { margin: 8px 0 0; color: var(--muted); font-size: 16px; }
 .divider {
   width: 180px; height: 2px; margin: 20px auto 0;
   background: linear-gradient(90deg, transparent, var(--gold), transparent);
