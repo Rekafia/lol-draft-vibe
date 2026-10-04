@@ -72,6 +72,12 @@ io.on('connection', (socket) => {
     if (teamCount('blue') === TEAM_SIZE && teamCount('red') === TEAM_SIZE) startDraft();
   });
 
+  socket.on('leaveTeam', () => {
+    if (phase !== 'lobby' || !players.has(socket.id)) return;
+    players.delete(socket.id);
+    broadcastState();
+  });
+
   socket.on('forceStart', () => {
     if (!players.has(socket.id)) return;
     startDraft();

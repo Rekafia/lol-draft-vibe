@@ -40,6 +40,11 @@ socket.on('joinError', (msg) => { errorEl.textContent = msg; });
 
 // ---------- Waiting room ----------
 
+// clicking the logo leaves the waiting room and goes back to Choose your team
+document.getElementById('brand').addEventListener('click', () => {
+  socket.emit('leaveTeam');
+});
+
 document.getElementById('btn-force').addEventListener('click', () => {
   socket.emit('forceStart');
 });

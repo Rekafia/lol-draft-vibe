@@ -38,7 +38,8 @@ body {
   background: rgba(1, 10, 19, 0.85);
 }
 
-.brand { display: flex; align-items: center; gap: 10px; }
+.brand { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
+.brand:hover .brand-name { color: var(--gold); }
 .brand-mark { color: var(--gold); font-size: 22px; }
 .brand-name {
   font-family: 'Cinzel', serif;
