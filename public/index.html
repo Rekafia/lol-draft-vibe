@@ -23,12 +23,22 @@
 
   <main class="content">
     <section class="hero">
-      <h1>DRAFT</h1>
+      <h1>Choose your team</h1>
       <div class="divider"></div>
     </section>
 
-    <section class="panel" id="main-panel">
-      <p class="muted">Tady bude obsah appky.</p>
+    <section class="panel join" id="main-panel">
+      <label class="field-label" for="name-input">Tvoje jméno</label>
+      <input id="name-input" class="text-input" type="text" maxlength="20" placeholder="Napiš svoje jméno" autocomplete="off">
+
+      <button id="btn-random" class="btn btn-random">Random team</button>
+
+      <div class="team-buttons">
+        <button id="btn-blue" class="btn btn-blue">Blue team</button>
+        <button id="btn-red" class="btn btn-red">Red team</button>
+      </div>
+
+      <p id="join-result" class="join-result"></p>
     </section>
   </main>
 

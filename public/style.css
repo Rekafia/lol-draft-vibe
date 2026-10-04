@@ -90,6 +90,68 @@ body {
 
 .muted { color: var(--muted); }
 
+/* ---------- Join / choose team ---------- */
+.join {
+  max-width: 460px;
+  margin: 0 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.field-label {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+}
+
+.text-input {
+  padding: 12px 14px;
+  font: inherit;
+  font-size: 16px;
+  color: var(--gold-light);
+  background: rgba(1, 10, 19, 0.8);
+  border: 1px solid var(--gold-dark);
+  outline: none;
+}
+.text-input:focus { border-color: var(--gold); }
+
+.btn {
+  padding: 14px 18px;
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 1px solid;
+  background: transparent;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.btn-random {
+  margin-top: 6px;
+  color: var(--gold-light);
+  border-color: var(--gold);
+  background: linear-gradient(180deg, rgba(200, 170, 110, 0.18), rgba(120, 90, 40, 0.18));
+}
+.btn-random:hover { box-shadow: 0 0 14px rgba(200, 170, 110, 0.4); }
+
+.team-buttons { display: flex; gap: 14px; }
+.team-buttons .btn { flex: 1; }
+
+.btn-blue { color: #cfe6ff; border-color: #2b7de9; background: rgba(43, 125, 233, 0.15); }
+.btn-blue:hover { background: rgba(43, 125, 233, 0.3); box-shadow: 0 0 14px rgba(43, 125, 233, 0.5); }
+
+.btn-red { color: #ffd6dc; border-color: var(--danger); background: rgba(232, 64, 87, 0.15); }
+.btn-red:hover { background: rgba(232, 64, 87, 0.3); box-shadow: 0 0 14px rgba(232, 64, 87, 0.5); }
+
+.join-result { margin: 4px 0 0; min-height: 1.4em; text-align: center; color: var(--gold-light); }
+.join-result .blue { color: #5ea8ff; font-weight: 600; }
+.join-result .red { color: #ff6b80; font-weight: 600; }
+
 /* ---------- Footer ---------- */
 .footer {
   padding: 14px;
