@@ -1,5 +1,13 @@
 const socket = io();
+const connEl = document.getElementById('conn');
 const statusEl = document.getElementById('status');
 
-socket.on('connect', () => { statusEl.textContent = 'Připojeno k serveru'; });
-socket.on('disconnect', () => { statusEl.textContent = 'Odpojeno — zkouším znovu…'; });
+socket.on('connect', () => {
+  connEl.className = 'conn online';
+  statusEl.textContent = 'Připojeno';
+});
+
+socket.on('disconnect', () => {
+  connEl.className = 'conn offline';
+  statusEl.textContent = 'Odpojeno — zkouším znovu…';
+});

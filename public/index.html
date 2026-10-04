@@ -4,11 +4,38 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LoL Draft</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>LoL Draft</h1>
-  <p id="status">Připojuji…</p>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">⚔</span>
+      <span class="brand-name">LoL Draft</span>
+    </div>
+    <div class="conn" id="conn">
+      <span class="conn-dot"></span>
+      <span class="conn-text" id="status">Připojuji…</span>
+    </div>
+  </header>
+
+  <main class="content">
+    <section class="hero">
+      <h1>Pick &amp; Ban Draft</h1>
+      <p class="tagline">Draft pro League of Legends v reálném čase</p>
+      <div class="divider"></div>
+    </section>
+
+    <section class="panel" id="main-panel">
+      <p class="muted">Tady bude obsah appky.</p>
+    </section>
+  </main>
+
+  <footer class="footer">
+    LoL Draft Build-Off · Vibe Coding
+  </footer>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="app.js"></script>
