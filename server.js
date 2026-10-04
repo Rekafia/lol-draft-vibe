@@ -17,16 +17,20 @@ const ROLES = ['top', 'jungle', 'mid', 'adc', 'support'];
 
 // Draft = one simultaneous ban phase (everyone bans at once, like ranked),
 // then picks in ranked order B R R B B R R B B R.
-// `slot` = which player of the team picks (0..4, players sorted by role).
-const PICK_ORDER = (() => {
-  const raw = ['blue', 'red', 'red', 'blue', 'blue', 'red', 'red', 'blue', 'blue', 'red'];
-  const counts = {};
-  return raw.map((team) => {
-    counts[team] = (counts[team] || 0) + 1;
-    return { type: 'pick', team, slot: counts[team] - 1 };
-  });
-})();
-const DRAFT_ORDER = [{ type: 'ban' }, ...PICK_ORDER];
+// Only players who are really there ban/pick: with e.g. 3v4 each team keeps
+// just its first 3 / 4 turns of the ranked order (B R R B B R R).
+// `slot` = which player of the team picks (players sorted by role).
+const RANKED_PICKS = ['blue', 'red', 'red', 'blue', 'blue', 'red', 'red', 'blue', 'blue', 'red'];
+
+function draftOrder(blueCount, redCount) {
+  const limit = { blue: blueCount, red: redCount };
+  const counts = { blue: 0, red: 0 };
+  const picks = [];
+  for (const team of RANKED_PICKS) {
+    if (counts[team] < limit[team]) picks.push({ type: 'pick', team, slot: counts[team]++ });
+  }
+  return [{ type: 'ban' }, ...picks];
+}
 
 // ---------- Champion data (Data Dragon) ----------
 
@@ -127,7 +131,7 @@ function startDraft() {
 
   phase = 'draft';
   draft = {
-    order: DRAFT_ORDER,
+    order: draftOrder(roster.blue.length, roster.red.length),
     roster,
     step: 0,
     bans: { blue: [], red: [] },
@@ -143,22 +147,13 @@ function startDraft() {
   startTurn();
 }
 
-// who acts on this step; with fewer than 5 players in a team they take turns
-function actorFor(step) {
-  const list = draft.roster[step.team];
-  return list.length ? list[step.slot % list.length].id : null;
-}
-
 function startTurn() {
   clearTimeout(turnTimer);
   const step = draft.order[draft.step];
   draft.hover = null;
-  draft.actor = step.type === 'pick' ? actorFor(step) : null;
-
-  // team with nobody in it: random pick right away
-  const ms = step.type === 'ban' || draft.actor ? TURN_MS : 1000;
-  draft.deadline = Date.now() + ms;
-  turnTimer = setTimeout(onTimeout, ms);
+  draft.actor = step.type === 'pick' ? draft.roster[step.team][step.slot].id : null;
+  draft.deadline = Date.now() + TURN_MS;
+  turnTimer = setTimeout(onTimeout, TURN_MS);
   broadcastState();
 }
 
@@ -182,16 +177,12 @@ function lockBan(playerId, champId) {
   else broadcastState();
 }
 
-// end of ban phase: players who didn't ban get a random ban,
-// ban slots without a player (team smaller than 5) get a random ban too
+// end of ban phase: players who didn't ban get a random ban
 function finishBans() {
-  for (const p of [...draft.roster.blue, ...draft.roster.red]) {
-    if (!draft.banLocked[p.id]) draft.banLocked[p.id] = randomFreeChampion();
-  }
   for (const team of ['blue', 'red']) {
-    for (let i = 0; i < TEAM_SIZE; i++) {
-      const p = draft.roster[team][i];
-      draft.bans[team].push(p ? draft.banLocked[p.id] : randomFreeChampion());
+    for (const p of draft.roster[team]) {
+      if (!draft.banLocked[p.id]) draft.banLocked[p.id] = randomFreeChampion();
+      draft.bans[team].push(draft.banLocked[p.id]);
     }
   }
   draft.banHover = {};

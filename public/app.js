@@ -155,10 +155,9 @@ btnLock.addEventListener('click', () => socket.emit('lockIn'));
 const btnRandomChamp = document.getElementById('btn-random-champ');
 btnRandomChamp.addEventListener('click', () => socket.emit('lockRandom'));
 
-// player in pick/ban slot i of a team (with fewer than 5 players they take turns)
+// player in pick/ban slot i of a team (one slot per player that is really there)
 function playerInSlot(draft, team, i) {
-  const list = draft.roster[team];
-  return list.length ? list[i % list.length] : null;
+  return draft.roster[team][i] || null;
 }
 
 function playerLabel(p) {
@@ -194,10 +193,10 @@ function banOf(draft, p) {
 function renderBans(team, draft, banStage) {
   const box = document.getElementById(`bans-${team}`);
   box.innerHTML = '';
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < draft.roster[team].length; i++) {
     const slot = document.createElement('div');
     slot.className = 'ban';
-    const p = draft.roster[team][i]; // each player bans once; empty slot = random ban
+    const p = draft.roster[team][i]; // each player bans once
     let champ = draft.bans[team][i];
     if (banStage) {
       const ban = banOf(draft, p);
@@ -220,8 +219,9 @@ function renderPicks(team, draft, current, banStage) {
   const list = document.getElementById(`picks-${team}`);
   list.innerHTML = '';
   const picks = draft.picks[team];
+  const firstPick = draft.order[1]; // first step after the ban phase
 
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < draft.roster[team].length; i++) {
     const li = document.createElement('li');
     li.className = 'pick';
     let champ = picks[i];
@@ -233,7 +233,7 @@ function renderPicks(team, draft, current, banStage) {
       if (champ) li.classList.add('preview');
     }
     // ban phase: every player's slot shows the champion they are banning in red
-    if (banStage && i < draft.roster[team].length) {
+    if (banStage) {
       const ban = banOf(draft, draft.roster[team][i]);
       champ = ban.champ;
       if (champ) {
@@ -250,7 +250,7 @@ function renderPicks(team, draft, current, banStage) {
     const player = document.createElement('span');
     player.className = 'pick-player';
     player.textContent = playerLabel(p);
-    if (team === 'blue' && i === 0) {
+    if (firstPick && firstPick.team === team && firstPick.slot === i) {
       const fp = document.createElement('span');
       fp.className = 'first-pick';
       fp.textContent = 'First pick';
