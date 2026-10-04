@@ -20,7 +20,7 @@ const ROLES = ['top', 'jungle', 'mid', 'adc', 'support'];
 // Which side gets first pick is random.
 // Only players who are really there ban/pick: with e.g. 3v4 each team keeps
 // just its first 3 / 4 turns of the order.
-// `slot` = which player of the team picks (players sorted by role).
+// `slot` = position in the team's pick order (random at start, players can trade it).
 const RANKED_PICKS = [0, 1, 1, 0, 0, 1, 1, 0, 0, 1]; // 0 = first-pick side, 1 = the other side
 
 function draftOrder(blueCount, redCount) {
@@ -69,6 +69,14 @@ let draft = null;
 let turnTimer = null;
 
 const randomOf = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
 
 function autoName() {
   return `Hráč-${Math.floor(10 + Math.random() * 90)}`;
@@ -123,12 +131,10 @@ function startDraft() {
     if (!p.role) p.role = randomOf(freeRoles(p.team, id));
   }
 
-  // roster snapshot, sorted by role (top -> support)
+  // roster snapshot in random order = pick order inside the team (players can trade it later)
   const roster = {};
   for (const team of ['blue', 'red']) {
-    roster[team] = teamMembers(team)
-      .map(([id, p]) => ({ id, name: p.name, role: p.role }))
-      .sort((a, b) => ROLES.indexOf(a.role) - ROLES.indexOf(b.role));
+    roster[team] = shuffle(teamMembers(team).map(([id, p]) => ({ id, name: p.name, role: p.role })));
   }
 
   phase = 'draft';
@@ -142,6 +148,7 @@ function startDraft() {
     banLocked: {}, // ban phase: playerId -> champion they locked
     hover: null, // pick phase: champion hovered by the picking player
     actor: null, // pick phase: who is picking
+    trades: [], // pending pick order trade requests: [{ from, to }]
     deadline: 0,
     turnMs: TURN_MS,
   };
@@ -154,6 +161,7 @@ function startTurn() {
   const step = draft.order[draft.step];
   draft.hover = null;
   draft.actor = step.type === 'pick' ? draft.roster[step.team][step.slot].id : null;
+  draft.trades = draft.trades.filter((t) => canTrade(t.from, t.to)); // drop trades that are no longer possible
   draft.deadline = Date.now() + TURN_MS;
   turnTimer = setTimeout(onTimeout, TURN_MS);
   broadcastState();
@@ -217,6 +225,35 @@ function canAct(socket) {
 
 function canBan(socket) {
   return isBanStage() && inRoster(socket.id) && !draft.banLocked[socket.id];
+}
+
+// ---------- Pick order trades (like in LoL) ----------
+
+// position of a player in their team's pick order -> { team, index }
+function rosterPos(id) {
+  for (const team of ['blue', 'red']) {
+    const index = draft.roster[team].findIndex((p) => p.id === id);
+    if (index !== -1) return { team, index };
+  }
+  return null;
+}
+
+// teammates can trade pick order while neither of them has picked yet and neither is picking right now
+function canTrade(a, b) {
+  if (phase !== 'draft' || a === b) return false;
+  const pa = rosterPos(a);
+  const pb = rosterPos(b);
+  if (!pa || !pb || pa.team !== pb.team) return false;
+  const picked = draft.picks[pa.team].length;
+  return pa.index >= picked && pb.index >= picked && a !== draft.actor && b !== draft.actor;
+}
+
+function swapPickOrder(a, b) {
+  const pa = rosterPos(a);
+  const pb = rosterPos(b);
+  const list = draft.roster[pa.team];
+  [list[pa.index], list[pb.index]] = [list[pb.index], list[pa.index]];
+  draft.trades = draft.trades.filter((t) => ![a, b].includes(t.from) && ![a, b].includes(t.to));
 }
 
 function resetAll() {
@@ -298,6 +335,30 @@ io.on('connection', (socket) => {
   });
 
   // random pick / random ban button
+  // ----- pick order trades -----
+  socket.on('tradeRequest', (to) => {
+    if (!canTrade(socket.id, to)) return;
+    // one outgoing request at a time
+    draft.trades = draft.trades.filter((t) => t.from !== socket.id);
+    draft.trades.push({ from: socket.id, to });
+    broadcastState();
+  });
+
+  socket.on('tradeCancel', () => {
+    if (phase !== 'draft') return;
+    draft.trades = draft.trades.filter((t) => t.from !== socket.id);
+    broadcastState();
+  });
+
+  socket.on('tradeAnswer', ({ from, accept } = {}) => {
+    if (phase !== 'draft') return;
+    const exists = draft.trades.some((t) => t.from === from && t.to === socket.id);
+    if (!exists) return;
+    if (accept && canTrade(from, socket.id)) swapPickOrder(from, socket.id);
+    else draft.trades = draft.trades.filter((t) => !(t.from === from && t.to === socket.id));
+    broadcastState();
+  });
+
   socket.on('lockRandom', () => {
     if (canBan(socket)) lockBan(socket.id, randomFreeChampion());
     else if (canAct(socket)) lockIn(randomFreeChampion());

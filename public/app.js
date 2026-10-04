@@ -197,7 +197,7 @@ function renderBans(team, draft, banStage) {
     const slot = document.createElement('div');
     slot.className = 'ban';
     const p = draft.roster[team][i]; // each player bans once
-    let champ = draft.bans[team][i];
+    let champ = draft.banLocked[p.id]; // follows the player when pick order is traded
     if (banStage) {
       const ban = banOf(draft, p);
       champ = ban.champ;
@@ -266,8 +266,62 @@ function renderPicks(team, draft, current, banStage) {
     }
     text.append(player, name);
     li.append(text);
+    const trade = tradeControls(draft, team, i, p);
+    if (trade) li.append(trade);
     list.append(li);
   }
+}
+
+// ---------- Pick order trades ----------
+
+// same rule as on the server: teammates who haven't picked yet and aren't picking right now
+function canTrade(draft, a, b) {
+  if (!a || !b || a === b) return false;
+  for (const team of ['blue', 'red']) {
+    const ids = draft.roster[team].map((p) => p.id);
+    const ia = ids.indexOf(a);
+    const ib = ids.indexOf(b);
+    if (ia === -1 || ib === -1) continue;
+    const picked = draft.picks[team].length;
+    return ia >= picked && ib >= picked && a !== draft.actor && b !== draft.actor;
+  }
+  return false;
+}
+
+// trade buttons shown in a teammate's slot
+function tradeControls(draft, team, i, p) {
+  if (!p || p.id === socket.id) return null;
+  const incoming = draft.trades.find((t) => t.from === p.id && t.to === socket.id);
+  const outgoing = draft.trades.find((t) => t.from === socket.id && t.to === p.id);
+  if (!incoming && !outgoing && !canTrade(draft, socket.id, p.id)) return null;
+
+  const box = document.createElement('div');
+  box.className = 'trade';
+  const mk = (label, cls, onClick) => {
+    const b = document.createElement('button');
+    b.className = `trade-btn ${cls}`;
+    b.textContent = label;
+    b.addEventListener('click', onClick);
+    box.append(b);
+  };
+
+  if (incoming) {
+    const note = document.createElement('span');
+    note.className = 'trade-note';
+    note.textContent = 'Chce vyměnit pořadí';
+    box.append(note);
+    mk('✓ Přijmout', 'accept', () => socket.emit('tradeAnswer', { from: p.id, accept: true }));
+    mk('✕', 'decline', () => socket.emit('tradeAnswer', { from: p.id, accept: false }));
+  } else if (outgoing) {
+    const note = document.createElement('span');
+    note.className = 'trade-note';
+    note.textContent = 'Čeká na odpověď…';
+    box.append(note);
+    mk('✕', 'decline', () => socket.emit('tradeCancel'));
+  } else {
+    mk('⇄ Trade', '', () => socket.emit('tradeRequest', p.id));
+  }
+  return box;
 }
 
 function renderDraft(draft, serverNow) {
