@@ -16,17 +16,19 @@ const TURN_MS = 30 * 1000; // 30 s per ban/pick, same as LoL champ select
 const ROLES = ['top', 'jungle', 'mid', 'adc', 'support'];
 
 // Draft = one simultaneous ban phase (everyone bans at once, like ranked),
-// then picks in ranked order B R R B B R R B B R.
+// then picks in ranked order 1-2-2-2-2-1 (first, second, second, first, first, ...).
+// Which side gets first pick is random.
 // Only players who are really there ban/pick: with e.g. 3v4 each team keeps
-// just its first 3 / 4 turns of the ranked order (B R R B B R R).
+// just its first 3 / 4 turns of the order.
 // `slot` = which player of the team picks (players sorted by role).
-const RANKED_PICKS = ['blue', 'red', 'red', 'blue', 'blue', 'red', 'red', 'blue', 'blue', 'red'];
+const RANKED_PICKS = [0, 1, 1, 0, 0, 1, 1, 0, 0, 1]; // 0 = first-pick side, 1 = the other side
 
 function draftOrder(blueCount, redCount) {
+  const sides = Math.random() < 0.5 ? ['blue', 'red'] : ['red', 'blue'];
   const limit = { blue: blueCount, red: redCount };
   const counts = { blue: 0, red: 0 };
   const picks = [];
-  for (const team of RANKED_PICKS) {
+  for (const team of RANKED_PICKS.map((i) => sides[i])) {
     if (counts[team] < limit[team]) picks.push({ type: 'pick', team, slot: counts[team]++ });
   }
   return [{ type: 'ban' }, ...picks];
