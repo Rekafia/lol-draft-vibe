@@ -316,11 +316,21 @@ function showView(name) {
 
 // Terminate (draft + result page): ends the lobby and kicks everyone back to Choose your team
 const btnTerminate = document.getElementById('btn-terminate');
-btnTerminate.addEventListener('click', () => socket.emit('terminate'));
+const terminateModal = document.getElementById('terminate-modal');
+btnTerminate.addEventListener('click', () => { terminateModal.hidden = false; });
+document.getElementById('terminate-cancel').addEventListener('click', () => { terminateModal.hidden = true; });
+document.getElementById('terminate-confirm').addEventListener('click', () => {
+  terminateModal.hidden = true;
+  socket.emit('terminate');
+});
+// click outside the dialog or Esc = cancel
+terminateModal.addEventListener('click', (e) => { if (e.target === terminateModal) terminateModal.hidden = true; });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') terminateModal.hidden = true; });
 
 socket.on('state', ({ phase, teamSize, roles, players, draft, serverNow }) => {
   const me = players.find((p) => p.id === socket.id);
   btnTerminate.hidden = phase === 'lobby';
+  if (phase === 'lobby') terminateModal.hidden = true;
 
   if (phase === 'draft') {
     showView('draft');

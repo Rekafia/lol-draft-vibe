@@ -62,6 +62,27 @@ body {
 .btn.btn-terminate:hover { background: rgba(232, 64, 87, 0.35); box-shadow: 0 0 12px rgba(232, 64, 87, 0.5); }
 .btn-terminate[hidden] { display: none; }
 
+/* ---------- Confirm dialog ---------- */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+  background: rgba(1, 10, 19, 0.75);
+}
+.modal-backdrop[hidden] { display: none; }
+.modal {
+  width: 100%; max-width: 420px;
+  padding: 24px;
+  border: 1px solid var(--danger);
+  background: var(--bg-2);
+  box-shadow: 0 0 30px rgba(232, 64, 87, 0.3);
+  text-align: center;
+}
+.modal h2 { margin: 0 0 10px; font-family: 'Cinzel', serif; color: var(--gold-light); }
+.modal p { margin: 0 0 20px; color: var(--muted); }
+.modal-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.modal-buttons .btn.btn-terminate { margin: 0; padding: 14px 18px; font-size: 16px; }
+
 .conn { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
 .conn-dot {
   width: 9px; height: 9px; border-radius: 50%;
