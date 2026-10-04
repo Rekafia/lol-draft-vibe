@@ -70,9 +70,26 @@
 
     <!-- ===== Draft ===== -->
     <div class="view" id="view-draft" hidden>
-      <section class="hero">
-        <h1>Draft</h1>
-        <div class="divider"></div>
+      <section class="draft-head">
+        <div class="bans" id="bans-blue"></div>
+        <div class="turn">
+          <div class="turn-text" id="turn-text"></div>
+          <div class="timer" id="timer">30</div>
+          <div class="timer-bar"><div class="timer-fill" id="timer-fill"></div></div>
+        </div>
+        <div class="bans red" id="bans-red"></div>
+      </section>
+
+      <section class="draft-body">
+        <ul class="picks blue" id="picks-blue"></ul>
+
+        <div class="champ-area">
+          <input id="champ-search" class="text-input" type="text" placeholder="Hledat šampiona…" autocomplete="off">
+          <div class="champ-grid" id="champ-grid"></div>
+          <button id="btn-lock" class="btn btn-random">Lock in</button>
+        </div>
+
+        <ul class="picks red" id="picks-red"></ul>
       </section>
     </div>
   </main>
