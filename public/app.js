@@ -184,21 +184,27 @@ function startTimer(deadline, turnMs, serverNow) {
   timerInterval = setInterval(tick, 200);
 }
 
-function renderBans(team, draft, current) {
+// ban phase: what player p is banning -> { champ, locked }
+function banOf(draft, p) {
+  if (!p) return { champ: null, locked: false };
+  if (draft.banLocked[p.id]) return { champ: draft.banLocked[p.id], locked: true };
+  return { champ: draft.banHover[p.id] || null, locked: false };
+}
+
+function renderBans(team, draft, banStage) {
   const box = document.getElementById(`bans-${team}`);
   box.innerHTML = '';
-  const bans = draft.bans[team];
   for (let i = 0; i < 5; i++) {
     const slot = document.createElement('div');
     slot.className = 'ban';
-    let champ = bans[i];
-    const isCurrent = current && current.type === 'ban' && current.team === team && i === bans.length;
-    if (isCurrent) {
-      slot.classList.add('active');
-      champ = draft.hover;
-      if (champ) slot.classList.add('preview');
+    const p = draft.roster[team][i]; // each player bans once; empty slot = random ban
+    let champ = draft.bans[team][i];
+    if (banStage) {
+      const ban = banOf(draft, p);
+      champ = ban.champ;
+      if (p && !ban.locked) slot.classList.add('active');
+      if (champ && !ban.locked) slot.classList.add('preview');
     }
-    const p = playerInSlot(draft, team, i);
     slot.title = p ? `Ban: ${p.name}` : 'Ban: random';
     if (champ) {
       const img = document.createElement('img');
@@ -210,32 +216,31 @@ function renderBans(team, draft, current) {
   }
 }
 
-function renderPicks(team, draft, current) {
+function renderPicks(team, draft, current, banStage) {
   const list = document.getElementById(`picks-${team}`);
   list.innerHTML = '';
   const picks = draft.picks[team];
-
-  // during a ban, the banning player's (first not yet picked) slot shows the hovered champion in red
-  let banSlot = -1;
-  if (current && current.type === 'ban' && current.team === team && draft.hover) {
-    for (let i = picks.length; i < 5; i++) {
-      if (playerInSlot(draft, team, i)?.id === draft.actor) { banSlot = i; break; }
-    }
-  }
 
   for (let i = 0; i < 5; i++) {
     const li = document.createElement('li');
     li.className = 'pick';
     let champ = picks[i];
-    const isCurrent = current && current.type === 'pick' && current.team === team && i === picks.length;
+    let banLabel = '';
+    const isCurrent = current.type === 'pick' && current.team === team && i === picks.length;
     if (isCurrent) {
       li.classList.add('active');
       champ = draft.hover;
       if (champ) li.classList.add('preview');
     }
-    if (i === banSlot) {
-      li.classList.add('active', 'ban-preview');
-      champ = draft.hover;
+    // ban phase: every player's slot shows the champion they are banning in red
+    if (banStage && i < draft.roster[team].length) {
+      const ban = banOf(draft, draft.roster[team][i]);
+      champ = ban.champ;
+      if (champ) {
+        li.classList.add('ban-preview');
+        banLabel = ban.locked ? 'Zabanováno: ' : 'Ban: ';
+      }
+      if (!ban.locked) li.classList.add('active');
     }
     const p = playerInSlot(draft, team, i);
     if (p && p.id === socket.id) li.classList.add('me');
@@ -245,11 +250,17 @@ function renderPicks(team, draft, current) {
     const player = document.createElement('span');
     player.className = 'pick-player';
     player.textContent = playerLabel(p);
+    if (team === 'blue' && i === 0) {
+      const fp = document.createElement('span');
+      fp.className = 'first-pick';
+      fp.textContent = 'First pick';
+      player.append(' ', fp);
+    }
     const name = document.createElement('span');
     name.className = 'pick-name';
     if (champ) {
       li.style.backgroundImage = `url(${splashUrl(champ)})`;
-      name.textContent = (i === banSlot ? 'Ban: ' : '') + (championsById[champ]?.name || champ);
+      name.textContent = banLabel + (championsById[champ]?.name || champ);
     } else {
       name.textContent = isCurrent ? 'Vybírá…' : '';
     }
@@ -261,30 +272,43 @@ function renderPicks(team, draft, current) {
 
 function renderDraft(draft, serverNow) {
   const current = draft.order[draft.step];
-  myTurn = draft.actor === socket.id;
+  const isBan = current.type === 'ban';
+  const everyone = [...draft.roster.blue, ...draft.roster.red];
+  const iAmIn = everyone.some((p) => p.id === socket.id);
+  const myBanLocked = !!draft.banLocked[socket.id];
+  myTurn = isBan ? iAmIn && !myBanLocked : draft.actor === socket.id;
+  const myHover = isBan ? draft.banHover[socket.id] : draft.hover;
 
-  renderBans('blue', draft, current);
-  renderBans('red', draft, current);
-  renderPicks('blue', draft, current);
-  renderPicks('red', draft, current);
+  renderBans('blue', draft, isBan);
+  renderBans('red', draft, isBan);
+  renderPicks('blue', draft, current, isBan);
+  renderPicks('red', draft, current, isBan);
 
   // champion grid: grey out banned/picked, highlight hovered
-  const taken = new Set([...draft.bans.blue, ...draft.bans.red, ...draft.picks.blue, ...draft.picks.red]);
+  const taken = new Set([
+    ...draft.bans.blue, ...draft.bans.red, ...draft.picks.blue, ...draft.picks.red,
+    ...Object.values(draft.banLocked),
+  ]);
   for (const tile of grid.children) {
     tile.disabled = taken.has(tile.dataset.id);
-    tile.classList.toggle('selected', tile.dataset.id === draft.hover);
+    tile.classList.toggle('selected', tile.dataset.id === myHover);
   }
   grid.classList.toggle('inactive', !myTurn);
 
-  const actor = [...draft.roster.blue, ...draft.roster.red].find((p) => p.id === draft.actor);
-  const who = myTurn ? 'Ty' : actor ? actor.name : (current.team === 'blue' ? 'Blue team' : 'Red team');
-  const isBan = current.type === 'ban';
-  turnText.textContent = myTurn
-    ? `Jsi na tahu — ${isBan ? 'banuj' : 'vyber šampiona'}!`
-    : `${who} ${isBan ? 'banuje' : 'vybírá'}…`;
-  turnText.className = `turn-text ${current.team}`;
+  if (isBan) {
+    const left = everyone.filter((p) => !draft.banLocked[p.id]).length;
+    turnText.textContent = !iAmIn ? `Všichni banují… (zbývá ${left})`
+      : myBanLocked ? `Ban potvrzen — čeká se na ostatní (${left})…`
+      : 'Všichni banují — vyber ban!';
+    turnText.className = 'turn-text';
+  } else {
+    const actor = everyone.find((p) => p.id === draft.actor);
+    const who = actor ? actor.name : (current.team === 'blue' ? 'Blue team' : 'Red team');
+    turnText.textContent = myTurn ? 'Jsi na tahu — vyber šampiona!' : `${who} vybírá…`;
+    turnText.className = `turn-text ${current.team}`;
+  }
 
-  btnLock.disabled = !myTurn || !draft.hover;
+  btnLock.disabled = !myTurn || !myHover;
   btnLock.textContent = isBan ? 'Ban' : 'Lock in';
   btnLock.classList.toggle('ban-mode', isBan);
   btnRandomChamp.disabled = !myTurn;

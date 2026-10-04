@@ -15,22 +15,18 @@ const TEAM_SIZE = 5;
 const TURN_MS = 30 * 1000; // 30 s per ban/pick, same as LoL champ select
 const ROLES = ['top', 'jungle', 'mid', 'adc', 'support'];
 
-// Tournament draft order: 6 bans, 6 picks, 4 bans, 4 picks.
-// `slot` = which player of the team acts (0..4, players sorted by role).
-const DRAFT_ORDER = (() => {
-  const raw = [
-    ['ban', 'blue'], ['ban', 'red'], ['ban', 'blue'], ['ban', 'red'], ['ban', 'blue'], ['ban', 'red'],
-    ['pick', 'blue'], ['pick', 'red'], ['pick', 'red'], ['pick', 'blue'], ['pick', 'blue'], ['pick', 'red'],
-    ['ban', 'red'], ['ban', 'blue'], ['ban', 'red'], ['ban', 'blue'],
-    ['pick', 'red'], ['pick', 'blue'], ['pick', 'blue'], ['pick', 'red'],
-  ];
+// Draft = one simultaneous ban phase (everyone bans at once, like ranked),
+// then picks in ranked order B R R B B R R B B R.
+// `slot` = which player of the team picks (0..4, players sorted by role).
+const PICK_ORDER = (() => {
+  const raw = ['blue', 'red', 'red', 'blue', 'blue', 'red', 'red', 'blue', 'blue', 'red'];
   const counts = {};
-  return raw.map(([type, team]) => {
-    const key = type + team;
-    counts[key] = (counts[key] || 0) + 1;
-    return { type, team, slot: counts[key] - 1 };
+  return raw.map((team) => {
+    counts[team] = (counts[team] || 0) + 1;
+    return { type: 'pick', team, slot: counts[team] - 1 };
   });
 })();
+const DRAFT_ORDER = [{ type: 'ban' }, ...PICK_ORDER];
 
 // ---------- Champion data (Data Dragon) ----------
 
@@ -102,9 +98,12 @@ function checkAutoStart() {
 // ---------- Draft ----------
 
 function isTaken(champId) {
-  const { bans, picks } = draft;
-  return [...bans.blue, ...bans.red, ...picks.blue, ...picks.red].includes(champId);
+  const { bans, picks, banLocked } = draft;
+  return [...bans.blue, ...bans.red, ...picks.blue, ...picks.red, ...Object.values(banLocked)].includes(champId);
 }
+
+const isBanStage = () => phase === 'draft' && draft.order[draft.step].type === 'ban';
+const inRoster = (id) => [...draft.roster.blue, ...draft.roster.red].some((p) => p.id === id);
 
 function randomFreeChampion() {
   return randomOf(champions.filter((c) => !isTaken(c.id))).id;
@@ -133,8 +132,10 @@ function startDraft() {
     step: 0,
     bans: { blue: [], red: [] },
     picks: { blue: [], red: [] },
-    hover: null,
-    actor: null,
+    banHover: {}, // ban phase: playerId -> champion they are hovering
+    banLocked: {}, // ban phase: playerId -> champion they locked
+    hover: null, // pick phase: champion hovered by the picking player
+    actor: null, // pick phase: who is picking
     deadline: 0,
     turnMs: TURN_MS,
   };
@@ -152,24 +153,57 @@ function startTurn() {
   clearTimeout(turnTimer);
   const step = draft.order[draft.step];
   draft.hover = null;
-  draft.actor = actorFor(step);
+  draft.actor = step.type === 'pick' ? actorFor(step) : null;
 
-  // team with nobody in it: random ban/pick right away
-  const ms = draft.actor ? TURN_MS : 1000;
+  // team with nobody in it: random pick right away
+  const ms = step.type === 'ban' || draft.actor ? TURN_MS : 1000;
   draft.deadline = Date.now() + ms;
   turnTimer = setTimeout(onTimeout, ms);
   broadcastState();
 }
 
-// time ran out without lock in -> random ban / random pick
+// time ran out without lock in -> random ban(s) / random pick
 function onTimeout() {
   if (phase !== 'draft') return;
-  lockIn(randomFreeChampion());
+  if (isBanStage()) finishBans();
+  else lockIn(randomFreeChampion());
 }
 
+// ---------- Simultaneous ban phase ----------
+
+function lockBan(playerId, champId) {
+  draft.banLocked[playerId] = champId;
+  delete draft.banHover[playerId];
+  // nobody else can ban the same champion anymore
+  for (const [id, c] of Object.entries(draft.banHover)) if (c === champId) delete draft.banHover[id];
+
+  const everyone = [...draft.roster.blue, ...draft.roster.red];
+  if (everyone.every((p) => draft.banLocked[p.id])) finishBans();
+  else broadcastState();
+}
+
+// end of ban phase: players who didn't ban get a random ban,
+// ban slots without a player (team smaller than 5) get a random ban too
+function finishBans() {
+  for (const p of [...draft.roster.blue, ...draft.roster.red]) {
+    if (!draft.banLocked[p.id]) draft.banLocked[p.id] = randomFreeChampion();
+  }
+  for (const team of ['blue', 'red']) {
+    for (let i = 0; i < TEAM_SIZE; i++) {
+      const p = draft.roster[team][i];
+      draft.bans[team].push(p ? draft.banLocked[p.id] : randomFreeChampion());
+    }
+  }
+  draft.banHover = {};
+  draft.step++;
+  startTurn();
+}
+
+// ---------- Picks ----------
+
 function lockIn(champId) {
-  const { type, team } = draft.order[draft.step];
-  (type === 'ban' ? draft.bans : draft.picks)[team].push(champId);
+  const { team } = draft.order[draft.step];
+  draft.picks[team].push(champId);
   draft.step++;
 
   if (draft.step >= draft.order.length) {
@@ -185,7 +219,11 @@ function lockIn(champId) {
 }
 
 function canAct(socket) {
-  return phase === 'draft' && draft.actor === socket.id;
+  return phase === 'draft' && !isBanStage() && draft.actor === socket.id;
+}
+
+function canBan(socket) {
+  return isBanStage() && inRoster(socket.id) && !draft.banLocked[socket.id];
 }
 
 function resetAll() {
@@ -250,20 +288,26 @@ io.on('connection', (socket) => {
 
   // select a champion (visible to everyone before lock in)
   socket.on('hover', (champId) => {
-    if (!canAct(socket) || !championIds.has(champId) || isTaken(champId)) return;
-    draft.hover = champId;
+    if (phase !== 'draft' || !championIds.has(champId) || isTaken(champId)) return;
+    if (canBan(socket)) draft.banHover[socket.id] = champId;
+    else if (canAct(socket)) draft.hover = champId;
+    else return;
     broadcastState();
   });
 
   socket.on('lockIn', () => {
-    if (!canAct(socket) || !draft.hover || isTaken(draft.hover)) return;
-    lockIn(draft.hover);
+    if (canBan(socket)) {
+      const champ = draft.banHover[socket.id];
+      if (champ && !isTaken(champ)) lockBan(socket.id, champ);
+    } else if (canAct(socket) && draft.hover && !isTaken(draft.hover)) {
+      lockIn(draft.hover);
+    }
   });
 
   // random pick / random ban button
   socket.on('lockRandom', () => {
-    if (!canAct(socket)) return;
-    lockIn(randomFreeChampion());
+    if (canBan(socket)) lockBan(socket.id, randomFreeChampion());
+    else if (canAct(socket)) lockIn(randomFreeChampion());
   });
 
   // end the draft / result page and kick everyone back to Choose your team
