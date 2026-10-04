@@ -266,6 +266,15 @@ io.on('connection', (socket) => {
     lockIn(randomFreeChampion());
   });
 
+  // end the draft / result page and kick everyone back to Choose your team
+  socket.on('terminate', () => {
+    if (phase === 'lobby') return;
+    resetAll();
+    players.clear();
+    console.log('lobby terminated');
+    broadcastState();
+  });
+
   socket.on('disconnect', () => {
     players.delete(socket.id);
     // nobody left -> reset so the next group starts from the lobby

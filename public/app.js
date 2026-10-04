@@ -314,8 +314,13 @@ function showView(name) {
   for (const [key, el] of Object.entries(views)) el.hidden = key !== name;
 }
 
+// Terminate (draft + result page): ends the lobby and kicks everyone back to Choose your team
+const btnTerminate = document.getElementById('btn-terminate');
+btnTerminate.addEventListener('click', () => socket.emit('terminate'));
+
 socket.on('state', ({ phase, teamSize, roles, players, draft, serverNow }) => {
   const me = players.find((p) => p.id === socket.id);
+  btnTerminate.hidden = phase === 'lobby';
 
   if (phase === 'draft') {
     showView('draft');

@@ -50,6 +50,18 @@ body {
   text-transform: uppercase;
 }
 
+.btn.btn-terminate {
+  margin-left: auto;
+  margin-right: 20px;
+  padding: 8px 16px;
+  font-size: 13px;
+  color: #ffd6dc;
+  border-color: var(--danger);
+  background: rgba(232, 64, 87, 0.15);
+}
+.btn.btn-terminate:hover { background: rgba(232, 64, 87, 0.35); box-shadow: 0 0 12px rgba(232, 64, 87, 0.5); }
+.btn-terminate[hidden] { display: none; }
+
 .conn { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
 .conn-dot {
   width: 9px; height: 9px; border-radius: 50%;
