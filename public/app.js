@@ -214,6 +214,15 @@ function renderPicks(team, draft, current) {
   const list = document.getElementById(`picks-${team}`);
   list.innerHTML = '';
   const picks = draft.picks[team];
+
+  // during a ban, the banning player's (first not yet picked) slot shows the hovered champion in red
+  let banSlot = -1;
+  if (current && current.type === 'ban' && current.team === team && draft.hover) {
+    for (let i = picks.length; i < 5; i++) {
+      if (playerInSlot(draft, team, i)?.id === draft.actor) { banSlot = i; break; }
+    }
+  }
+
   for (let i = 0; i < 5; i++) {
     const li = document.createElement('li');
     li.className = 'pick';
@@ -223,6 +232,10 @@ function renderPicks(team, draft, current) {
       li.classList.add('active');
       champ = draft.hover;
       if (champ) li.classList.add('preview');
+    }
+    if (i === banSlot) {
+      li.classList.add('active', 'ban-preview');
+      champ = draft.hover;
     }
     const p = playerInSlot(draft, team, i);
     if (p && p.id === socket.id) li.classList.add('me');
@@ -236,7 +249,7 @@ function renderPicks(team, draft, current) {
     name.className = 'pick-name';
     if (champ) {
       li.style.backgroundImage = `url(${splashUrl(champ)})`;
-      name.textContent = championsById[champ]?.name || champ;
+      name.textContent = (i === banSlot ? 'Ban: ' : '') + (championsById[champ]?.name || champ);
     } else {
       name.textContent = isCurrent ? 'Vybírá…' : '';
     }
