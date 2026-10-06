@@ -3,5 +3,5 @@ services:
     build: .
     image: lol-draft-vibe
     ports:
-      - "3000:3000"
+      - "9020:3000"
     restart: unless-stopped

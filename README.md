@@ -42,17 +42,18 @@ cd lol-draft-vibe
 docker compose up -d --build
 ```
 
-Appka poběží na portu 3000 a po pádu / restartu serveru se sama znovu spustí.
+Appka poběží na portu **9020** (http://localhost:9020) a po pádu / restartu serveru se sama znovu spustí.
+Port jde změnit v `docker-compose.yml` (`"9020:3000"` → `"JINY_PORT:3000"`).
 
 ### Poznámky k serveru
 
 - Server potřebuje přístup k internetu — při startu stahuje data šampionů z Data Dragonu.
-- Port 3000 musí být otevřený ve firewallu, nebo appku dej za reverse proxy (nginx, Caddy…).
+- Port (3000 pro Node.js, 9020 pro Docker) musí být otevřený ve firewallu, nebo appku dej za reverse proxy (nginx, Caddy…).
   Proxy musí propouštět **WebSockety** (živá synchronizace běží přes Socket.IO). Příklad pro Caddy:
 
   ```
   draft.tvoje-domena.cz {
-      reverse_proxy localhost:3000
+      reverse_proxy localhost:9020   # nebo :3000 bez Dockeru
   }
   ```
 
