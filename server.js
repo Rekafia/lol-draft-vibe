@@ -6,7 +6,7 @@ const { Server } = require('socket.io');
 // optional .env file (PORT)
 try { process.loadEnvFile(); } catch { /* no .env */ }
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 9020;
 
 const app = express();
 app.use(express.static(path.join(__dirname, 'public')));

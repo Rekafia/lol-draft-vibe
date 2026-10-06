@@ -10,8 +10,8 @@ COPY server.js ./
 COPY public ./public
 
 ENV NODE_ENV=production
-ENV PORT=3000
-EXPOSE 3000
+ENV PORT=9020
+EXPOSE 9020
 
 # run as the non-root user that comes with the node image
 USER node
