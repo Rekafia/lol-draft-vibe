@@ -5,10 +5,10 @@
   "description": "Real-time pick/ban draft for League of Legends (LoL Draft Build-Off, Vibe Coding branch)",
   "main": "server.js",
   "scripts": {
-    "start": "node --env-file-if-exists=.env server.js"
+    "start": "node server.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=20.12"
   },
   "dependencies": {
     "express": "^5.2.1",

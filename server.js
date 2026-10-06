@@ -4,11 +4,13 @@ const express = require('express');
 const { Server } = require('socket.io');
 const crypto = require('crypto');
 
+// optional .env file (PORT, ADMIN_PASSWORD)
+try { process.loadEnvFile(); } catch { /* no .env */ }
+
 const PORT = process.env.PORT || 3000;
 
-// Admin password: set ADMIN_PASSWORD when starting the server.
-// If it's not set, a random one is generated and printed to the console.
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || crypto.randomBytes(4).toString('hex');
+// Admin password: default below, can be overridden with ADMIN_PASSWORD (env variable or .env file).
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'MilujuNohy';
 const ADMIN_HASH = crypto.createHash('sha256').update(ADMIN_PASSWORD).digest();
 // socket ids of players who entered the admin password
 const admins = new Set();
@@ -411,6 +413,4 @@ io.on('connection', (socket) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`LoL Draft running on http://localhost:${PORT}`);
-  if (!process.env.ADMIN_PASSWORD) console.log(`ADMIN_PASSWORD not set, generated admin password: ${ADMIN_PASSWORD}`);
-});
+  console.log(`LoL Draft running on http://localhost:${PORT}`);});

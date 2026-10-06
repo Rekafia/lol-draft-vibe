@@ -4,6 +4,8 @@ Real-time pick/ban draft pro League of Legends — součást experimentu „LoL 
 
 ## Spuštění lokálně
 
+Potřeba: [Node.js](https://nodejs.org) 20.12 nebo novější.
+
 ```bash
 npm install
 npm start
@@ -11,38 +13,64 @@ npm start
 
 Pak otevři http://localhost:3000.
 
-## Admin heslo
+## Nasazení na server
+
+### Varianta A: Node.js
+
+```bash
+git clone https://github.com/Rekafia/lol-draft-vibe.git
+cd lol-draft-vibe
+npm install --omit=dev
+npm start
+```
+
+Appka poběží na portu 3000. Jiný port: `PORT=8080 npm start`.
+Aby běžela i po odhlášení / restartu serveru, spusť ji přes správce procesů, např. [pm2](https://pm2.keymetrics.io):
+
+```bash
+npm install -g pm2
+pm2 start server.js --name lol-draft
+pm2 save
+pm2 startup
+```
+
+### Varianta B: Docker
+
+```bash
+git clone https://github.com/Rekafia/lol-draft-vibe.git
+cd lol-draft-vibe
+docker compose up -d --build
+```
+
+Appka poběží na portu 3000 a po pádu / restartu serveru se sama znovu spustí.
+
+### Poznámky k serveru
+
+- Server potřebuje přístup k internetu — při startu stahuje data šampionů z Data Dragonu.
+- Port 3000 musí být otevřený ve firewallu, nebo appku dej za reverse proxy (nginx, Caddy…).
+  Proxy musí propouštět **WebSockety** (živá synchronizace běží přes Socket.IO). Příklad pro Caddy:
+
+  ```
+  draft.tvoje-domena.cz {
+      reverse_proxy localhost:3000
+  }
+  ```
+
+## Admin
 
 Force start (waiting room) a Terminate (draft, výsledek) může použít jen admin.
-Admin se přihlásí kliknutím na indikátor **Připojeno** (tečku) v hlavičce. Heslo se nastaví při spuštění serveru:
+Admin se přihlásí kliknutím na indikátor **Připojeno** (tečku) v hlavičce.
 
-```bash
-ADMIN_PASSWORD=tvoje-heslo npm start
+Výchozí heslo je `MilujuNohy`. Změnit ho jde proměnnou `ADMIN_PASSWORD`,
+nebo souborem `.env` v kořeni projektu (funguje pro `npm start` i Docker):
+
 ```
-
-V PowerShellu: `$env:ADMIN_PASSWORD="tvoje-heslo"; npm start`
-
-`npm start` si heslo načte i ze souboru `.env` v kořeni projektu (`ADMIN_PASSWORD=tvoje-heslo`). Soubor `.env` je v `.gitignore`, takže se nedostane na GitHub.
-
-Když heslo nenastavíš, server si vygeneruje náhodné a vypíše ho do konzole při startu.
-V Dockeru ho nastav v souboru `.env` vedle `docker-compose.yml` (`ADMIN_PASSWORD=tvoje-heslo`).
-
-## Spuštění v Dockeru
-
-```bash
-docker compose up --build
+ADMIN_PASSWORD=jine-heslo
+PORT=3000
 ```
-
-nebo bez compose:
-
-```bash
-docker build -t lol-draft-vibe .
-docker run -p 3000:3000 lol-draft-vibe
-```
-
-Pak otevři http://localhost:3000. Server potřebuje přístup k internetu (stahuje data šampionů z Data Dragonu).
 
 ## Stack
 
 - Node.js + Express + Socket.IO (server drží stav, posílá změny všem klientům)
 - Čisté HTML/CSS/JS ve složce `public/`
+- Data šampionů, ikony a splash arty z Riot Data Dragonu
