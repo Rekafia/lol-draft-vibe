@@ -139,18 +139,6 @@ body {
 .btn.btn-terminate:hover { background: rgba(255, 46, 99, 0.25); box-shadow: var(--glow-red); }
 .btn-terminate[hidden] { display: none; }
 
-/* admin login (opened by clicking the connection indicator) */
-.conn { user-select: none; }
-.conn.admin .conn-dot { background: var(--accent-2); box-shadow: 0 0 8px var(--accent-2), 0 0 16px var(--accent-2); }
-.modal.modal-admin { max-width: 340px; border-color: var(--accent); box-shadow: var(--glow-accent); }
-.modal-admin h2 { margin-bottom: 18px; }
-.modal-admin .text-input { width: 100%; text-align: center; }
-.modal-admin #admin-logout { width: 100%; padding: 14px 18px; font-size: 14px; }
-.text-input.wrong { border-color: var(--red); box-shadow: var(--glow-red); animation: shake 0.35s; }
-@keyframes shake {
-  20%, 60% { transform: translateX(-6px); }
-  40%, 80% { transform: translateX(6px); }
-}
 
 .force-wrap { flex-direction: column; align-items: center; }
 .force-info { margin: 0; text-align: center; }

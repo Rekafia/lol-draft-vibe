@@ -2,23 +2,11 @@ const path = require('path');
 const http = require('http');
 const express = require('express');
 const { Server } = require('socket.io');
-const crypto = require('crypto');
 
-// optional .env file (PORT, ADMIN_PASSWORD)
+// optional .env file (PORT)
 try { process.loadEnvFile(); } catch { /* no .env */ }
 
 const PORT = process.env.PORT || 3000;
-
-// Admin password: default below, can be overridden with ADMIN_PASSWORD (env variable or .env file).
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'MilujuNohy';
-const ADMIN_HASH = crypto.createHash('sha256').update(ADMIN_PASSWORD).digest();
-// socket ids of players who entered the admin password
-const admins = new Set();
-
-function checkAdminPassword(input) {
-  const hash = crypto.createHash('sha256').update(String(input || '')).digest();
-  return crypto.timingSafeEqual(hash, ADMIN_HASH);
-}
 
 const app = express();
 app.use(express.static(path.join(__dirname, 'public')));
@@ -106,9 +94,19 @@ function freeRoles(team, exceptId) {
   return ROLES.filter((r) => !used.includes(r));
 }
 
+// Captain = the first player who joined the lobby. Only the captain can Force start and Terminate.
+// When the captain leaves, the next player who joined earliest becomes captain.
+let captainId = null;
+
+function currentCaptain() {
+  if (!players.has(captainId)) captainId = players.keys().next().value ?? null;
+  return captainId;
+}
+
 function broadcastState() {
   io.emit('state', {
     phase,
+    captain: currentCaptain(),
     teamSize: TEAM_SIZE,
     roles: ROLES,
     players: [...players].map(([id, p]) => ({ id, name: p.name, team: p.team, role: p.role })),
@@ -289,9 +287,9 @@ io.on('connection', (socket) => {
     const cleanName = String(name || '').trim().slice(0, 20) || autoName();
 
     // switching teams: don't count yourself
-    players.delete(socket.id);
-    const blueFree = teamMembers('blue').length < TEAM_SIZE;
-    const redFree = teamMembers('red').length < TEAM_SIZE;
+    const others = (t) => teamMembers(t).filter(([id]) => id !== socket.id).length;
+    const blueFree = others('blue') < TEAM_SIZE;
+    const redFree = others('red') < TEAM_SIZE;
 
     let chosen = team;
     if (chosen === 'random') {
@@ -303,7 +301,7 @@ io.on('connection', (socket) => {
       return socket.emit('joinError', 'Tenhle tým je plný.');
     }
 
-    players.set(socket.id, { name: cleanName, team: chosen, role: null });
+    players.set(socket.id, { name: cleanName, team: chosen, role: null }); // keeps join order when switching
     broadcastState();
   });
 
@@ -325,21 +323,9 @@ io.on('connection', (socket) => {
     broadcastState();
   });
 
-  socket.on('adminLogin', (password) => {
-    const ok = checkAdminPassword(password);
-    if (ok) admins.add(socket.id);
-    socket.emit('admin', { isAdmin: ok, attempted: true });
-    console.log(`admin login ${ok ? 'OK' : 'failed'}`, socket.id);
-  });
-
-  socket.on('adminLogout', () => {
-    admins.delete(socket.id);
-    socket.emit('admin', { isAdmin: false });
-  });
-
-  // admin only
+  // captain only
   socket.on('forceStart', () => {
-    if (!admins.has(socket.id) || phase !== 'lobby' || players.size === 0) return;
+    if (socket.id !== currentCaptain() || phase !== 'lobby') return;
     if (!ddVersion) return socket.emit('joinError', 'Data šampionů se ještě načítají, zkus to za chvíli.');
     startDraft();
   });
@@ -393,9 +379,9 @@ io.on('connection', (socket) => {
   });
 
   // end the draft / result page and kick everyone back to Choose your team
-  // admin only
+  // captain only
   socket.on('terminate', () => {
-    if (!admins.has(socket.id) || phase === 'lobby') return;
+    if (socket.id !== currentCaptain() || phase === 'lobby') return;
     resetAll();
     players.clear();
     console.log('lobby terminated');
@@ -404,7 +390,6 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     players.delete(socket.id);
-    admins.delete(socket.id);
     // nobody left -> reset so the next group starts from the lobby
     if (io.of('/').sockets.size === 0) resetAll();
     broadcastState();

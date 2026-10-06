@@ -17,6 +17,9 @@ const views = {
 
 const ROLE_LABELS = { top: 'Top', jungle: 'Jungle', mid: 'Mid', adc: 'ADC', support: 'Support' };
 
+// crown in front of the captain's name
+const crown = (p) => (p && p.id === captainId ? '👑 ' : '');
+
 socket.on('connect', () => {
   connEl.className = 'conn online';
   statusEl.textContent = 'Připojeno';
@@ -64,7 +67,7 @@ function renderTeam(team, players, teamSize) {
     if (p) {
       li.className = 'slot filled' + (p.id === socket.id ? ' me' : '');
       const name = document.createElement('span');
-      name.textContent = p.name + (p.id === socket.id ? ' (ty)' : '');
+      name.textContent = crown(p) + p.name + (p.id === socket.id ? ' (ty)' : '');
       const role = document.createElement('span');
       role.className = 'slot-role' + (p.role ? '' : ' none');
       role.textContent = p.role ? ROLE_LABELS[p.role] : 'bez role';
@@ -162,7 +165,7 @@ function playerInSlot(draft, team, i) {
 
 function playerLabel(p) {
   if (!p) return 'Nikdo (random)';
-  return `${p.name}${p.id === socket.id ? ' (ty)' : ''} · ${ROLE_LABELS[p.role]}`;
+  return `${crown(p)}${p.name}${p.id === socket.id ? ' (ty)' : ''} · ${ROLE_LABELS[p.role]}`;
 }
 
 function stopTimer() {
@@ -388,7 +391,7 @@ function renderResult(draft) {
       role.textContent = p ? ROLE_LABELS[p.role] : '—';
       const player = document.createElement('span');
       player.className = 'result-player';
-      player.textContent = p ? p.name : 'Nikdo';
+      player.textContent = p ? crown(p) + p.name : 'Nikdo';
       const name = document.createElement('span');
       name.className = 'result-champ';
       name.textContent = championsById[champ]?.name || champ;
@@ -405,65 +408,21 @@ function showView(name) {
   for (const [key, el] of Object.entries(views)) el.hidden = key !== name;
 }
 
-// ---------- Admin ----------
+// ---------- Captain ----------
+// The first player who joined the lobby is the captain: only they can Force start and Terminate.
 
-let isAdmin = false;
+let isCaptain = false;
+let captainId = null;
 let currentPhase = 'lobby';
-const adminModal = document.getElementById('admin-modal');
-const adminPassword = document.getElementById('admin-password');
 const btnForce = document.getElementById('btn-force');
 
-// hidden entry: clicking the "Připojeno" indicator opens the admin login
-function openAdminModal() {
-  document.getElementById('admin-login').hidden = isAdmin;
-  document.getElementById('admin-logged').hidden = !isAdmin;
-  adminPassword.classList.remove('wrong');
-  adminPassword.value = '';
-  adminModal.hidden = false;
-  if (!isAdmin) adminPassword.focus();
-}
-const closeAdminModal = () => { adminModal.hidden = true; };
-
-connEl.addEventListener('click', openAdminModal);
-// Enter = log in
-adminPassword.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') socket.emit('adminLogin', adminPassword.value);
-});
-document.getElementById('admin-logout').addEventListener('click', () => {
-  socket.emit('adminLogout');
-  closeAdminModal();
-});
-adminModal.addEventListener('click', (e) => { if (e.target === adminModal) closeAdminModal(); });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAdminModal(); });
-
-// show admin-only controls
-function updateAdminUi() {
-  connEl.classList.toggle('admin', isAdmin);
-  btnForce.hidden = !isAdmin;
-  document.getElementById('force-info').hidden = isAdmin;
-  btnTerminate.hidden = !isAdmin || currentPhase === 'lobby';
+// show captain-only controls
+function updateCaptainUi() {
+  btnForce.hidden = !isCaptain;
+  document.getElementById('force-info').hidden = isCaptain;
+  btnTerminate.hidden = !isCaptain || currentPhase === 'lobby';
   if (btnTerminate.hidden) terminateModal.hidden = true;
 }
-
-socket.on('admin', ({ isAdmin: ok, attempted }) => {
-  isAdmin = ok;
-  if (attempted && !ok) {
-    // wrong password: shake the input (restart the animation)
-    adminPassword.classList.remove('wrong');
-    void adminPassword.offsetWidth;
-    adminPassword.classList.add('wrong');
-    adminPassword.select();
-  } else {
-    closeAdminModal();
-  }
-  updateAdminUi();
-});
-
-// admin status is per connection: after a reconnect the server doesn't know us anymore
-socket.on('disconnect', () => {
-  isAdmin = false;
-  updateAdminUi();
-});
 
 // Terminate (draft + result page): ends the lobby and kicks everyone back to Choose your team
 const btnTerminate = document.getElementById('btn-terminate');
@@ -478,10 +437,12 @@ document.getElementById('terminate-confirm').addEventListener('click', () => {
 terminateModal.addEventListener('click', (e) => { if (e.target === terminateModal) terminateModal.hidden = true; });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') terminateModal.hidden = true; });
 
-socket.on('state', ({ phase, teamSize, roles, players, draft, serverNow }) => {
+socket.on('state', ({ phase, captain, teamSize, roles, players, draft, serverNow }) => {
   const me = players.find((p) => p.id === socket.id);
   currentPhase = phase;
-  updateAdminUi();
+  captainId = captain;
+  isCaptain = captain === socket.id;
+  updateCaptainUi();
 
   if (phase === 'draft') {
     showView('draft');

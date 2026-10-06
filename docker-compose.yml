@@ -4,7 +4,4 @@ services:
     image: lol-draft-vibe
     ports:
       - "3000:3000"
-    environment:
-      # admin password (Force start, Terminate); taken from your shell or a .env file next to this file
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
     restart: unless-stopped

@@ -56,18 +56,11 @@ Appka poběží na portu 3000 a po pádu / restartu serveru se sama znovu spust�
   }
   ```
 
-## Admin
+## Kapitán
 
-Force start (waiting room) a Terminate (draft, výsledek) může použít jen admin.
-Admin se přihlásí kliknutím na indikátor **Připojeno** (tečku) v hlavičce.
-
-Výchozí heslo je `MilujuNohy`. Změnit ho jde proměnnou `ADMIN_PASSWORD`,
-nebo souborem `.env` v kořeni projektu (funguje pro `npm start` i Docker):
-
-```
-ADMIN_PASSWORD=jine-heslo
-PORT=3000
-```
+První hráč, který se připojí do lobby (vybere si tým), je **kapitán** 👑.
+Jen kapitán může použít Force start (waiting room) a Terminate (draft, výsledek).
+Když kapitán odejde, kapitánem se stane hráč, který se připojil nejdřív po něm.
 
 ## Stack
 
