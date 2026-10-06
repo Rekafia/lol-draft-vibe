@@ -2,8 +2,21 @@ const path = require('path');
 const http = require('http');
 const express = require('express');
 const { Server } = require('socket.io');
+const crypto = require('crypto');
 
 const PORT = process.env.PORT || 3000;
+
+// Admin password: set ADMIN_PASSWORD when starting the server.
+// If it's not set, a random one is generated and printed to the console.
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || crypto.randomBytes(4).toString('hex');
+const ADMIN_HASH = crypto.createHash('sha256').update(ADMIN_PASSWORD).digest();
+// socket ids of players who entered the admin password
+const admins = new Set();
+
+function checkAdminPassword(input) {
+  const hash = crypto.createHash('sha256').update(String(input || '')).digest();
+  return crypto.timingSafeEqual(hash, ADMIN_HASH);
+}
 
 const app = express();
 app.use(express.static(path.join(__dirname, 'public')));
@@ -310,8 +323,21 @@ io.on('connection', (socket) => {
     broadcastState();
   });
 
+  socket.on('adminLogin', (password) => {
+    const ok = checkAdminPassword(password);
+    if (ok) admins.add(socket.id);
+    socket.emit('admin', { isAdmin: ok, attempted: true });
+    console.log(`admin login ${ok ? 'OK' : 'failed'}`, socket.id);
+  });
+
+  socket.on('adminLogout', () => {
+    admins.delete(socket.id);
+    socket.emit('admin', { isAdmin: false });
+  });
+
+  // admin only
   socket.on('forceStart', () => {
-    if (!players.has(socket.id)) return;
+    if (!admins.has(socket.id) || phase !== 'lobby' || players.size === 0) return;
     if (!ddVersion) return socket.emit('joinError', 'Data šampionů se ještě načítají, zkus to za chvíli.');
     startDraft();
   });
@@ -365,8 +391,9 @@ io.on('connection', (socket) => {
   });
 
   // end the draft / result page and kick everyone back to Choose your team
+  // admin only
   socket.on('terminate', () => {
-    if (phase === 'lobby') return;
+    if (!admins.has(socket.id) || phase === 'lobby') return;
     resetAll();
     players.clear();
     console.log('lobby terminated');
@@ -375,6 +402,7 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     players.delete(socket.id);
+    admins.delete(socket.id);
     // nobody left -> reset so the next group starts from the lobby
     if (io.of('/').sockets.size === 0) resetAll();
     broadcastState();
@@ -384,4 +412,5 @@ io.on('connection', (socket) => {
 
 server.listen(PORT, () => {
   console.log(`LoL Draft running on http://localhost:${PORT}`);
+  if (!process.env.ADMIN_PASSWORD) console.log(`ADMIN_PASSWORD not set, generated admin password: ${ADMIN_PASSWORD}`);
 });

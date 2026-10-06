@@ -405,6 +405,66 @@ function showView(name) {
   for (const [key, el] of Object.entries(views)) el.hidden = key !== name;
 }
 
+// ---------- Admin ----------
+
+let isAdmin = false;
+let currentPhase = 'lobby';
+const btnAdmin = document.getElementById('btn-admin');
+const adminModal = document.getElementById('admin-modal');
+const adminPassword = document.getElementById('admin-password');
+const adminError = document.getElementById('admin-error');
+const btnForce = document.getElementById('btn-force');
+
+function openAdminModal() {
+  document.getElementById('admin-login').hidden = isAdmin;
+  document.getElementById('admin-logged').hidden = !isAdmin;
+  adminError.textContent = '';
+  adminPassword.value = '';
+  adminModal.hidden = false;
+  if (!isAdmin) adminPassword.focus();
+}
+const closeAdminModal = () => { adminModal.hidden = true; };
+const submitAdmin = () => socket.emit('adminLogin', adminPassword.value);
+
+btnAdmin.addEventListener('click', openAdminModal);
+document.getElementById('admin-cancel').addEventListener('click', closeAdminModal);
+document.getElementById('admin-close').addEventListener('click', closeAdminModal);
+document.getElementById('admin-submit').addEventListener('click', submitAdmin);
+adminPassword.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitAdmin(); });
+document.getElementById('admin-logout').addEventListener('click', () => {
+  socket.emit('adminLogout');
+  closeAdminModal();
+});
+adminModal.addEventListener('click', (e) => { if (e.target === adminModal) closeAdminModal(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAdminModal(); });
+
+// show admin-only controls
+function updateAdminUi() {
+  btnAdmin.classList.toggle('is-admin', isAdmin);
+  btnAdmin.textContent = isAdmin ? '★ Admin' : 'Admin';
+  btnForce.hidden = !isAdmin;
+  document.getElementById('force-info').hidden = isAdmin;
+  btnTerminate.hidden = !isAdmin || currentPhase === 'lobby';
+  if (btnTerminate.hidden) terminateModal.hidden = true;
+}
+
+socket.on('admin', ({ isAdmin: ok, attempted }) => {
+  isAdmin = ok;
+  if (attempted && !ok) {
+    adminError.textContent = 'Špatné heslo.';
+    adminPassword.select();
+  } else {
+    closeAdminModal();
+  }
+  updateAdminUi();
+});
+
+// admin status is per connection: after a reconnect the server doesn't know us anymore
+socket.on('disconnect', () => {
+  isAdmin = false;
+  updateAdminUi();
+});
+
 // Terminate (draft + result page): ends the lobby and kicks everyone back to Choose your team
 const btnTerminate = document.getElementById('btn-terminate');
 const terminateModal = document.getElementById('terminate-modal');
@@ -420,8 +480,8 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') terminateM
 
 socket.on('state', ({ phase, teamSize, roles, players, draft, serverNow }) => {
   const me = players.find((p) => p.id === socket.id);
-  btnTerminate.hidden = phase === 'lobby';
-  if (phase === 'lobby') terminateModal.hidden = true;
+  currentPhase = phase;
+  updateAdminUi();
 
   if (phase === 'draft') {
     showView('draft');

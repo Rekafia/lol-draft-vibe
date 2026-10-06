@@ -16,6 +16,7 @@
       <span class="brand-name">LoL Draft</span>
     </div>
     <button class="btn btn-terminate" id="btn-terminate" hidden>Terminate</button>
+    <button class="btn btn-admin" id="btn-admin">Admin</button>
     <div class="conn" id="conn">
       <span class="conn-dot"></span>
       <span class="conn-text" id="status">Připojuji…</span>
@@ -71,7 +72,8 @@
       </section>
 
       <div class="force-wrap">
-        <button id="btn-force" class="btn btn-random">Force start</button>
+        <button id="btn-force" class="btn btn-random" hidden>Force start</button>
+        <p class="muted force-info" id="force-info">Draft se spustí automaticky při 5v5, nebo ho dřív spustí admin.</p>
       </div>
     </div>
 
@@ -130,6 +132,29 @@
       <div class="modal-buttons">
         <button class="btn btn-random" id="terminate-cancel">Zrušit</button>
         <button class="btn btn-terminate" id="terminate-confirm">Terminate</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="admin-modal" hidden>
+    <div class="modal modal-admin">
+      <div id="admin-login">
+        <h2>Admin</h2>
+        <p>Zadej admin heslo. Admin může spustit draft (Force start) a ukončit lobby (Terminate).</p>
+        <input id="admin-password" class="text-input" type="password" placeholder="Heslo" autocomplete="off">
+        <p class="admin-error" id="admin-error"></p>
+        <div class="modal-buttons">
+          <button class="btn" id="admin-cancel">Zrušit</button>
+          <button class="btn btn-random" id="admin-submit">Přihlásit</button>
+        </div>
+      </div>
+      <div id="admin-logged" hidden>
+        <h2>Jsi admin</h2>
+        <p>Můžeš spustit draft přes Force start a ukončit lobby přes Terminate.</p>
+        <div class="modal-buttons">
+          <button class="btn" id="admin-close">Zavřít</button>
+          <button class="btn btn-terminate" id="admin-logout">Odhlásit</button>
+        </div>
       </div>
     </div>
   </div>

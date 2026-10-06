@@ -11,6 +11,20 @@ npm start
 
 Pak otevři http://localhost:3000.
 
+## Admin heslo
+
+Force start (waiting room) a Terminate (draft, výsledek) může použít jen admin.
+Admin se přihlásí tlačítkem **Admin** v hlavičce. Heslo se nastaví při spuštění serveru:
+
+```bash
+ADMIN_PASSWORD=tvoje-heslo npm start
+```
+
+V PowerShellu: `$env:ADMIN_PASSWORD="tvoje-heslo"; npm start`
+
+Když heslo nenastavíš, server si vygeneruje náhodné a vypíše ho do konzole při startu.
+V Dockeru ho nastav v souboru `.env` vedle `docker-compose.yml` (`ADMIN_PASSWORD=tvoje-heslo`).
+
 ## Spuštění v Dockeru
 
 ```bash
