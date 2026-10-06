@@ -409,28 +409,26 @@ function showView(name) {
 
 let isAdmin = false;
 let currentPhase = 'lobby';
-const btnAdmin = document.getElementById('btn-admin');
 const adminModal = document.getElementById('admin-modal');
 const adminPassword = document.getElementById('admin-password');
-const adminError = document.getElementById('admin-error');
 const btnForce = document.getElementById('btn-force');
 
+// hidden entry: clicking the "Připojeno" indicator opens the admin login
 function openAdminModal() {
   document.getElementById('admin-login').hidden = isAdmin;
   document.getElementById('admin-logged').hidden = !isAdmin;
-  adminError.textContent = '';
+  adminPassword.classList.remove('wrong');
   adminPassword.value = '';
   adminModal.hidden = false;
   if (!isAdmin) adminPassword.focus();
 }
 const closeAdminModal = () => { adminModal.hidden = true; };
-const submitAdmin = () => socket.emit('adminLogin', adminPassword.value);
 
-btnAdmin.addEventListener('click', openAdminModal);
-document.getElementById('admin-cancel').addEventListener('click', closeAdminModal);
-document.getElementById('admin-close').addEventListener('click', closeAdminModal);
-document.getElementById('admin-submit').addEventListener('click', submitAdmin);
-adminPassword.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitAdmin(); });
+connEl.addEventListener('click', openAdminModal);
+// Enter = log in
+adminPassword.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') socket.emit('adminLogin', adminPassword.value);
+});
 document.getElementById('admin-logout').addEventListener('click', () => {
   socket.emit('adminLogout');
   closeAdminModal();
@@ -440,8 +438,7 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAdmin
 
 // show admin-only controls
 function updateAdminUi() {
-  btnAdmin.classList.toggle('is-admin', isAdmin);
-  btnAdmin.textContent = isAdmin ? '★ Admin' : 'Admin';
+  connEl.classList.toggle('admin', isAdmin);
   btnForce.hidden = !isAdmin;
   document.getElementById('force-info').hidden = isAdmin;
   btnTerminate.hidden = !isAdmin || currentPhase === 'lobby';
@@ -451,7 +448,10 @@ function updateAdminUi() {
 socket.on('admin', ({ isAdmin: ok, attempted }) => {
   isAdmin = ok;
   if (attempted && !ok) {
-    adminError.textContent = 'Špatné heslo.';
+    // wrong password: shake the input (restart the animation)
+    adminPassword.classList.remove('wrong');
+    void adminPassword.offsetWidth;
+    adminPassword.classList.add('wrong');
     adminPassword.select();
   } else {
     closeAdminModal();

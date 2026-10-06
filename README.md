@@ -14,7 +14,7 @@ Pak otevři http://localhost:3000.
 ## Admin heslo
 
 Force start (waiting room) a Terminate (draft, výsledek) může použít jen admin.
-Admin se přihlásí tlačítkem **Admin** v hlavičce. Heslo se nastaví při spuštění serveru:
+Admin se přihlásí kliknutím na indikátor **Připojeno** (tečku) v hlavičce. Heslo se nastaví při spuštění serveru:
 
 ```bash
 ADMIN_PASSWORD=tvoje-heslo npm start
