@@ -22,6 +22,8 @@ ADMIN_PASSWORD=tvoje-heslo npm start
 
 V PowerShellu: `$env:ADMIN_PASSWORD="tvoje-heslo"; npm start`
 
+`npm start` si heslo načte i ze souboru `.env` v kořeni projektu (`ADMIN_PASSWORD=tvoje-heslo`). Soubor `.env` je v `.gitignore`, takže se nedostane na GitHub.
+
 Když heslo nenastavíš, server si vygeneruje náhodné a vypíše ho do konzole při startu.
 V Dockeru ho nastav v souboru `.env` vedle `docker-compose.yml` (`ADMIN_PASSWORD=tvoje-heslo`).
 
